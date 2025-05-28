@@ -1,23 +1,93 @@
-import { Shogiground } from 'shogiground';
-import type { Config } from 'shogiground/config';
-import type { Piece, Key } from "shogiground/types";
+import {useCallback, useContext, useEffect, useRef} from "react";
+import {Shogiground} from 'shogiground';
+import type {Key, Piece} from "shogiground/types";
+import type {Game, Move} from "./types/types.ts";
 import './assets/css/base.css';
 import './assets/css/shogiground.css';
 import './assets/css/hands.css';
 import './assets/css/themes/wood-grid.css';
 import './assets/css/pieces/ryoko.css';
-import {useEffect, useState} from "react";
+import {ClientContext, PlayerContext} from "./Contexts.ts";
+import type {IMessage} from "@stomp/stompjs";
 
-function Board() {
+function Board({game}: {game: Game | null}) {
+    const stompClientRef = useContext(ClientContext);
+    const player = useContext(PlayerContext);
+    const madeMove = useRef<boolean>(false);
+    const sg = useRef(Shogiground());
 
-    const [sg, setSg] = useState(Shogiground());
+    const getMove = useCallback ((response: IMessage) => {
+        const serverMessage = JSON.parse(response.body);
+        const move: Move = serverMessage.body;
+        if (madeMove.current) {
+            madeMove.current =  false;
+            return;
+        }
+        sg.current.move(move.orig, move.dest, move.prom);
+    }, []);
 
-    const initBoard = () => {
-        const config: Config = {
+    const getLegalMoves = useCallback(() => {
+        const stompClient = stompClientRef.current;
+        stompClient.subscribe('/user/topic/game/'  + game?.gameId + '/legalMoves', (response: IMessage) => {
+            const moveMap = new Map<Key, Key[]>();
+            Object.entries(JSON.parse(response.body).body).forEach(([key, value]) => {
+                moveMap.set(key as Key, value as Key[]);
+            })
+            sg.current.set({
+                movable: {
+                    dests: moveMap,
+                }
+            })
+        });
+        if (stompClient && stompClient.connected) {
+            stompClient.publish({
+                destination: '/app/game/' + game?.gameId + '/getMoves',
+            });
+        } else {
+            console.error('Stomp client is not connected');
+        }
+    }, [game?.gameId, stompClientRef]);
+
+    const makeMove = useCallback((a: Key, b: Key, prom: boolean, capturedPiece?: Piece) => {
+        const stompClient = stompClientRef.current;
+        if (stompClient && stompClient.connected) {
+            madeMove.current =  false;
+            stompClient.publish({
+                destination: '/app/game/' + game?.gameId + '/move',
+                body: JSON.stringify({orig: a, dest: b, prom: prom, capturedPiece: capturedPiece}),
+            });
+        } else {
+            console.error('Stomp client is not connected');
+        }
+        sg.current.set({ turnColor: player.current, })
+    }, [game?.gameId, player, stompClientRef])
+
+    useEffect(() => {
+        // initialize the page and set up an empty board
+        sg.current.attach({
+            board: document.getElementById('dirty')!,
+        });
+        sg.current.attach({
+            hands: { bottom: document.getElementById('hand-bottom')!, },
+        });
+        sg.current.attach({
+            hands: { top: document.getElementById('hand-top')!, },
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!game) {
+            return
+        }
+
+        sg.current.set({
             sfen: {
-                board: 'lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL',
+                board: game!.sfen[0],
+                hands: game!.sfen[1],
             },
-            orientation: 'sente',
+            events: { move: makeMove, },
+            movable: { free: false, },
+            orientation: player.current,
             draggable: {
                 enabled: true,
                 deleteOnDropOff: false,
@@ -27,9 +97,7 @@ function Board() {
                 enabled: true,
                 addSparesToHand: true,
             },
-            drawable: {
-                forced: false,
-            },
+            drawable: { forced: false, },
             promotion: {
                 promotesTo: (role: string) => {
                     if (role === 'bishop') return 'horse';
@@ -39,42 +107,23 @@ function Board() {
                     if (role === 'rook') return 'dragon';
                     if (role === 'lance') return 'promotedLance';
                 },
-            },
-            events: {
-                select: (s: Key) => {
-                    console.log('SELECT', s, sg.state.selected);
+                movePromotionDialog: (orig: Key, dest: Key): boolean => {
+                    if (player.current == 'sente') {
+                        return orig[1] === 'a' || orig[1] === 'b' || orig[1] === 'c'
+                            || dest[1] === 'a' || dest[1] === 'b' || dest[1] === 'c';
+                    } else {
+                        return orig[1] === 'g' || orig[1] === 'h' || orig[1] === 'i'
+                            || dest[1] === 'g' || dest[1] === 'h' || dest[1] === 'i';
+                    }
                 },
-                move: (a: Key, b: Key) => {
-                    console.log('MOVE', a, b);
-                },
-                pieceUnselect: (p: Piece) => {
-                    console.log('pieceUnselect', p);
-                },
-                unselect: (s: Key) => {
-                    console.log('unselect', s);
-                },
-            },
-        };
-        sg.set(config);
-        sg.attach({
-            board: document.getElementById('dirty')!,
-        });
-        sg.attach({
-            hands: {
-                bottom: document.getElementById('hand-bottom')!,
             },
         });
-        sg.attach({
-            hands: {
-                top: document.getElementById('hand-top')!,
-            },
-        });
-    }
 
-    useEffect(() => {
-        initBoard();
-    }, []);
-
+        getLegalMoves();
+        const stompClient = stompClientRef.current;
+        stompClient.subscribe('/topic/game/' + game.gameId + '/move', getMove);
+        //stompClient.subscribe('/topic/game/' + game.gameId + '/drop', getDrop);
+    }, [game, getLegalMoves, getMove, makeMove, player, stompClientRef]);
 
     return (
         <div className="wrap">
@@ -90,4 +139,4 @@ function Board() {
     )
 }
 
-export default Board
+export default Board;

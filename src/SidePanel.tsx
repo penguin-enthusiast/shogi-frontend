@@ -1,27 +1,36 @@
-import {useContext, useState} from "react";
-import {ClientContext} from "./App.tsx";
+import {type Dispatch, type SetStateAction, useContext, useState} from "react";
+import { ClientContext, PlayerContext } from './Contexts.ts';
 import type {IMessage} from "@stomp/stompjs";
-import type {Game} from "./types/types.tsx";
+import type {Game} from "./types/types.ts";
 
-function getResponse (response: IMessage) {
-    const message = JSON.parse(response.body);
-    if (message.statusCodeValue === 404) {
-        window.alert("Game not found")
-        return;
-    }
-    const game = JSON.parse(response.body).body as Game;
-    window.alert('Joined game with id:\n\n' + game.gameId);
-}
-
-function SidePanel() {
+function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) {
     const stompClientRef = useContext(ClientContext);
+    const player = useContext(PlayerContext);
     const [gameId, setGameId] = useState('');
+
+    const joinCreatedGame = (response: IMessage) => {
+        const game = JSON.parse(response.body).body as Game;
+        player.current = 'sente';
+        setGame(game);
+        window.alert('Created game with id:\n\n' + game.gameId);
+    }
+
+    const joinExistingGame = (response: IMessage) => {
+        const message = JSON.parse(response.body);
+        if (message.statusCodeValue === 404) {
+            window.alert("Game not found")
+            return;
+        }
+        const game = message.body as Game;
+        player.current = 'gote';
+        setGame(game);
+        window.alert('Joined game with id:\n\n' + game.gameId);
+    }
 
     const createGame = () => {
         const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game', getResponse);
+        stompClient.subscribe('/user/topic/game', joinCreatedGame);
         if (stompClient && stompClient.connected) {
-            console.log('Creating game');
             stompClient.publish({
                 destination: '/app/create',
             });
@@ -32,11 +41,10 @@ function SidePanel() {
 
     const connectToRandom = () => {
         const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game', getResponse);
+        stompClient.subscribe('/user/topic/game', joinExistingGame);
         if (stompClient && stompClient.connected) {
-            console.log('joining random game');
             stompClient.publish({
-                destination: '/app/connect/random',
+                destination: '/app/join/random',
             });
         } else {
             console.error('Stomp client is not connected');
@@ -49,11 +57,10 @@ function SidePanel() {
             return;
         }
         const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game', getResponse);
+        stompClient.subscribe('/user/topic/game', joinExistingGame);
         if (stompClient && stompClient.connected) {
-            console.log('joining game with id: ' + gameId);
             stompClient.publish({
-                destination: '/app/connect',
+                destination: '/app/join',
                 body: JSON.stringify({
                     "gameId": gameId
                 }),

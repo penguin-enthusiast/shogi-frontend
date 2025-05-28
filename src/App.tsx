@@ -1,20 +1,21 @@
-import {useEffect, useRef, createContext, type RefObject} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import SockJS from 'sockjs-client';
-import { Client } from '@stomp/stompjs';
+import {Client} from '@stomp/stompjs';
 import Board from "./Board.tsx";
 import SidePanel from "./SidePanel.tsx";
-
-export const ClientContext = createContext<RefObject<Client>>(null!);
+import type {Game} from "./types/types.ts";
+import {ClientContext, PlayerContext} from './Contexts.ts';
 
 const App = () => {
+    const [game, setGame] = useState<Game|null>(null);
     const stompClientRef = useRef<Client>(null!);
+    const playerRef = useRef<'sente' | 'gote' | undefined>(undefined);
 
     useEffect(() => {
         const socket = new SockJS('http://localhost:8080/ws');
         const stompClient = new Client({
             webSocketFactory: () => socket,
             onConnect: () => {
-                console.log('Connected to websocket');
             },
             onStompError: (frame) => {
                 console.error('Error: ' + frame.headers['message'] + '\n' + frame.body);
@@ -30,12 +31,14 @@ const App = () => {
     }, []);
 
     return (
-        <ClientContext.Provider value={stompClientRef}>
-            <div className="main">
-                <SidePanel/>
-                <Board/>
-            </div>
-        </ClientContext.Provider>
+        <PlayerContext.Provider value={playerRef}>
+            <ClientContext.Provider value={stompClientRef}>
+                <div className="main">
+                    <SidePanel setGame={setGame}/>
+                    <Board game={game}/>
+                </div>
+            </ClientContext.Provider>
+        </PlayerContext.Provider>
     );
 };
 
