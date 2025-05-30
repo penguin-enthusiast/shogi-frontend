@@ -102,6 +102,31 @@ function Board({game}: {game: Game | null}) {
     }, [game?.gameId, player, stompClientRef])
 
     useEffect(() => {
+        if (!stompClientRef.current || !game) {
+            return;
+        }
+        const subscription = stompClientRef.current.subscribe('/topic/game/' + game?.gameId, (response: IMessage) => {
+            const serverMessage = JSON.parse(response.body);
+            if (serverMessage.headers.winner) {
+                subscription.unsubscribe();
+                let alertMessage = 'Game over';
+                if (serverMessage.headers.method) {
+                    if (serverMessage.headers.method[0] == 'disconnect') {
+                        alertMessage += ', ' + serverMessage.headers.loser[0] + ' disconnected.';
+                    } else if (serverMessage.headers.method[0] == 'normal') {
+                        alertMessage += ', ' + serverMessage.headers.winner[0] + 'won!';
+                    }
+                }
+                window.alert(alertMessage);
+                sg.current.set({
+                    movable: { dests: undefined, },
+                    droppable: { dests: undefined, }
+                })
+            }
+        });
+    }, [game, stompClientRef]);
+
+    useEffect(() => {
         // initialize the page and set up an empty board
         sg.current.attach({
             board: document.getElementById('dirty')!,
@@ -120,10 +145,6 @@ function Board({game}: {game: Game | null}) {
         }
 
         sg.current.set({
-            sfen: {
-                board: game!.sfen[0],
-                hands: game!.sfen[1],
-            },
             events: {
                 move: makeMove,
                 drop: makeDrop,
@@ -145,10 +166,10 @@ function Board({game}: {game: Game | null}) {
                 promotesTo: (role: string) => {
                     if (role === 'bishop') return 'horse';
                     if (role === 'pawn') return 'tokin';
-                    if (role === 'knight') return 'promotedKnight';
-                    if (role === 'silver') return 'promotedSilver';
+                    if (role === 'knight') return 'promotedknight';
+                    if (role === 'silver') return 'promotedsilver';
                     if (role === 'rook') return 'dragon';
-                    if (role === 'lance') return 'promotedLance';
+                    if (role === 'lance') return 'promotedlance';
                 },
                 movePromotionDialog: (orig: Key, dest: Key): boolean => {
                     if (player.current == 'sente') {
@@ -167,6 +188,15 @@ function Board({game}: {game: Game | null}) {
         stompClient.subscribe('/topic/game/' + game.gameId + '/move', getMove);
         //stompClient.subscribe('/topic/game/' + game.gameId + '/drop', getDrop);
     }, [game, getLegalMoves, getMove, makeDrop, makeMove, player, stompClientRef]);
+
+    useEffect(() => {
+        sg.current.set({
+            sfen: {
+                board: game?.sfen[0],
+                hands: game?.sfen[1],
+            },
+        })
+    }, [game?.sfen]);
 
     return (
         <div className="wrap">

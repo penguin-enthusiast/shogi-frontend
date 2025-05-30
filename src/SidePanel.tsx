@@ -8,29 +8,24 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
     const player = useContext(PlayerContext);
     const [gameId, setGameId] = useState('');
 
-    const joinCreatedGame = (response: IMessage) => {
-        const game = JSON.parse(response.body).body as Game;
-        player.current = 'sente';
-        setGame(game);
-        window.alert('Created game with id:\n\n' + game.gameId);
-    }
-
-    const joinExistingGame = (response: IMessage) => {
+    const joinGame = (response: IMessage) => {
         const message = JSON.parse(response.body);
         if (message.statusCodeValue === 404) {
             window.alert("Game not found")
+            player.current = undefined;
             return;
         }
         const game = message.body as Game;
-        player.current = 'gote';
         setGame(game);
         window.alert('Joined game with id:\n\n' + game.gameId);
+        stompClientRef.current.unsubscribe('/user/topic/game');
     }
 
     const createGame = () => {
         const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game', joinCreatedGame);
+        stompClient.subscribe('/user/topic/game', joinGame);
         if (stompClient && stompClient.connected) {
+            player.current = 'sente';
             stompClient.publish({
                 destination: '/app/create',
             });
@@ -41,8 +36,9 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
 
     const connectToRandom = () => {
         const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game', joinExistingGame);
+        stompClient.subscribe('/user/topic/game', joinGame);
         if (stompClient && stompClient.connected) {
+            player.current = 'gote';
             stompClient.publish({
                 destination: '/app/join/random',
             });
@@ -52,13 +48,14 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
     }
 
     const connectToSpecificGame = () => {
+        const stompClient = stompClientRef.current;
+        stompClient.subscribe('/user/topic/game', joinGame);
         if (gameId == null || gameId === '') {
             alert("Please enter a game id");
             return;
         }
-        const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game', joinExistingGame);
         if (stompClient && stompClient.connected) {
+            player.current = 'gote';
             stompClient.publish({
                 destination: '/app/join',
                 body: JSON.stringify({
