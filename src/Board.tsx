@@ -17,43 +17,6 @@ function Board({game}: {game: Game | null}) {
     const madeMove = useRef<boolean>(false);
     const sg = useRef(Shogiground());
 
-    const getMove = useCallback ((response: IMessage) => {
-        const serverMessage = JSON.parse(response.body);
-        if (madeMove.current) {
-            madeMove.current =  false;
-            return;
-        }
-        if (serverMessage.headers.moveType[0] == 'move') {
-            const move: Move = serverMessage.body;
-            sg.current.move(move.orig, move.dest, move.prom);
-        } else if (serverMessage.headers.moveType[0] == 'drop') {
-            const drop: Drop = serverMessage.body;
-            sg.current.drop(drop.piece, drop.key, false, false);
-        }
-    }, []);
-
-    const getLegalMoves = useCallback(() => {
-        const stompClient = stompClientRef.current;
-        stompClient.subscribe('/user/topic/game/'  + game?.gameId + '/legalMoves', (response: IMessage) => {
-            const moveMap = new Map<Key, Key[]>();
-            Object.entries(JSON.parse(response.body).body).forEach(([key, value]) => {
-                moveMap.set(key as Key, value as Key[]);
-            })
-            sg.current.set({
-                movable: {
-                    dests: moveMap,
-                }
-            })
-        });
-        if (stompClient && stompClient.connected) {
-            stompClient.publish({
-                destination: '/app/game/' + game?.gameId + '/getMoves',
-            });
-        } else {
-            console.error('Stomp client is not connected');
-        }
-    }, [game?.gameId, stompClientRef]);
-
     const makeMove = useCallback((a: Key, b: Key, prom: boolean, capturedPiece?: Piece) => {
         if (capturedPiece) {
             const color = capturedPiece.color == 'gote' ? 'sente' : 'gote';
@@ -78,7 +41,7 @@ function Board({game}: {game: Game | null}) {
             console.error('Stomp client is not connected');
         }
         sg.current.set({ turnColor: player.current, })
-    }, [game?.gameId, player, stompClientRef])
+    }, [game?.gameId, player, stompClientRef]);
 
     const makeDrop = useCallback((piece: Piece, key: Key) => {
         if (sg.current.getHandsSfen() != '-') {
@@ -99,35 +62,10 @@ function Board({game}: {game: Game | null}) {
             console.error('Stomp client is not connected');
         }
         sg.current.set({ turnColor: player.current, })
-    }, [game?.gameId, player, stompClientRef])
+    }, [game?.gameId, player, stompClientRef]);
 
     useEffect(() => {
-        if (!stompClientRef.current || !game) {
-            return;
-        }
-        const subscription = stompClientRef.current.subscribe('/topic/game/' + game?.gameId, (response: IMessage) => {
-            const serverMessage = JSON.parse(response.body);
-            if (serverMessage.headers.winner) {
-                subscription.unsubscribe();
-                let alertMessage = 'Game over';
-                if (serverMessage.headers.method) {
-                    if (serverMessage.headers.method[0] == 'disconnect') {
-                        alertMessage += ', ' + serverMessage.headers.loser[0] + ' disconnected.';
-                    } else if (serverMessage.headers.method[0] == 'normal') {
-                        alertMessage += ', ' + serverMessage.headers.winner[0] + 'won!';
-                    }
-                }
-                window.alert(alertMessage);
-                sg.current.set({
-                    movable: { dests: undefined, },
-                    droppable: { dests: undefined, }
-                })
-            }
-        });
-    }, [game, stompClientRef]);
-
-    useEffect(() => {
-        // initialize the page and set up an empty board
+        // initialize the page and board
         sg.current.attach({
             board: document.getElementById('dirty')!,
         });
@@ -137,21 +75,9 @@ function Board({game}: {game: Game | null}) {
         sg.current.attach({
             hands: { top: document.getElementById('hand-top')!, },
         });
-    }, []);
-
-    useEffect(() => {
-        if (!game) {
-            return
-        }
-
         sg.current.set({
-            events: {
-                move: makeMove,
-                drop: makeDrop,
-            },
             movable: { free: false, },
             droppable: { free: false, },
-            orientation: player.current,
             draggable: {
                 enabled: true,
                 deleteOnDropOff: false,
@@ -171,6 +97,25 @@ function Board({game}: {game: Game | null}) {
                     if (role === 'rook') return 'dragon';
                     if (role === 'lance') return 'promotedlance';
                 },
+            },
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!stompClientRef.current || !game) {
+            return;
+        }
+        sg.current.set({
+            sfen: {
+                board: game?.sfen[0],
+                hands: game?.sfen[1],
+            },
+            events: {
+                move: makeMove,
+                drop: makeDrop,
+            },
+            orientation: player.current,
+            promotion: {
                 movePromotionDialog: (orig: Key, dest: Key): boolean => {
                     if (player.current == 'sente') {
                         return orig[1] === 'a' || orig[1] === 'b' || orig[1] === 'c'
@@ -182,21 +127,57 @@ function Board({game}: {game: Game | null}) {
                 },
             },
         });
-
-        getLegalMoves();
         const stompClient = stompClientRef.current;
-        stompClient.subscribe('/topic/game/' + game.gameId + '/move', getMove);
-        //stompClient.subscribe('/topic/game/' + game.gameId + '/drop', getDrop);
-    }, [game, getLegalMoves, getMove, makeDrop, makeMove, player, stompClientRef]);
-
-    useEffect(() => {
-        sg.current.set({
-            sfen: {
-                board: game?.sfen[0],
-                hands: game?.sfen[1],
-            },
-        })
-    }, [game?.sfen]);
+        stompClient.subscribe('/topic/game/' + game?.gameId, (response: IMessage) => {
+            const serverMessage = JSON.parse(response.body);
+            if (serverMessage.headers.winner) {
+                let alertMessage = 'Game over';
+                if (serverMessage.headers.method) {
+                    if (serverMessage.headers.method[0] == 'disconnect') {
+                        alertMessage += ', ' + serverMessage.headers.loser[0] + ' disconnected.';
+                    } else if (serverMessage.headers.method[0] == 'normal') {
+                        alertMessage += ', ' + serverMessage.headers.winner[0] + 'won!';
+                    }
+                }
+                window.alert(alertMessage);
+                sg.current.set({
+                    movable: { dests: undefined, },
+                    droppable: { dests: undefined, }
+                })
+            }
+        });
+        stompClient.subscribe('/topic/game/' + game.gameId + '/move', (response: IMessage) => {
+            const serverMessage = JSON.parse(response.body);
+            if (madeMove.current) {
+                madeMove.current =  false;
+                return;
+            }
+            if (serverMessage.headers.moveType[0] == 'move') {
+                const move: Move = serverMessage.body;
+                sg.current.move(move.orig, move.dest, move.prom);
+            } else if (serverMessage.headers.moveType[0] == 'drop') {
+                const drop: Drop = serverMessage.body;
+                sg.current.drop(drop.piece, drop.key, false, false);
+            }
+        });
+        stompClient.subscribe('/user/topic/game/'  + game?.gameId + '/legalMoves', (response: IMessage) => {
+            console.log("got legal moves");
+            const moveMap = new Map<Key, Key[]>();
+            Object.entries(JSON.parse(response.body).body).forEach(([key, value]) => {
+                moveMap.set(key as Key, value as Key[]);
+            })
+            sg.current.set({
+                movable: {
+                    dests: moveMap,
+                }
+            })
+        });
+        if (game.status == 'FINISHED') {
+            stompClient.unsubscribe('/topic/game/' + game?.gameId);
+            stompClient.unsubscribe('/topic/game/' + game.gameId + '/move');
+            stompClient.unsubscribe('/user/topic/game/'  + game?.gameId + '/legalMoves');
+        }
+    }, [game, makeDrop, makeMove, player, stompClientRef]);
 
     return (
         <div className="wrap">

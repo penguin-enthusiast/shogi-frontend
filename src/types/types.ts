@@ -19,4 +19,7 @@ export interface Game {
     player2: string;
     sfen: string[];
     lastMove: Move | Drop;
+    status: GameStatus;
 }
+
+export type GameStatus = 'NO_GAME' | 'WAITING' | 'IN_PROGRESS' | 'FINISHED';
