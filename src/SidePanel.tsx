@@ -3,7 +3,7 @@ import { ClientContext, PlayerContext } from './Contexts.ts';
 import type {IMessage} from "@stomp/stompjs";
 import type {Game} from "./types/types.ts";
 
-function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) {
+function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStateAction<Game | null>>}) {
     const stompClientRef = useContext(ClientContext);
     const player = useContext(PlayerContext);
     const [gameId, setGameId] = useState('');
@@ -22,6 +22,9 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
     }
 
     const createGame = () => {
+        if (!leaveGameConfirmation()) {
+            return;
+        }
         const stompClient = stompClientRef.current;
         stompClient.subscribe('/user/topic/game', joinGame);
         if (stompClient && stompClient.connected) {
@@ -35,6 +38,9 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
     }
 
     const connectToRandom = () => {
+        if (!leaveGameConfirmation()) {
+            return;
+        }
         const stompClient = stompClientRef.current;
         stompClient.subscribe('/user/topic/game', joinGame);
         if (stompClient && stompClient.connected) {
@@ -54,6 +60,9 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
             alert("Please enter a game id");
             return;
         }
+        if (!leaveGameConfirmation()) {
+            return;
+        }
         if (stompClient && stompClient.connected) {
             player.current = 'gote';
             stompClient.publish({
@@ -65,6 +74,25 @@ function SidePanel({setGame}: {setGame: Dispatch<SetStateAction<Game | null>>}) 
         } else {
             console.error('Stomp client is not connected');
         }
+    }
+
+    const leaveGameConfirmation = (): boolean => {
+        if (game != null && game.status != 'FINISHED') {
+            if (window.confirm("Are you sure you want to leave your current game?")) {
+                const stompClient = stompClientRef.current;
+                if (stompClient && stompClient.connected) {
+                    setGame({...game, status: 'FINISHED'});
+                    stompClient.publish({
+                        destination: '/app/game/' + game.gameId + '/disconnect',
+                    });
+                } else {
+                    console.error('Stomp client is not connected');
+                }
+                return true;
+            }
+            return false;
+        }
+        return true;
     }
 
     return (

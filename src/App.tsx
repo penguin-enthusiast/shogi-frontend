@@ -34,8 +34,8 @@ const App = () => {
         <PlayerContext.Provider value={playerRef}>
             <ClientContext.Provider value={stompClientRef}>
                 <div className="main">
-                    <SidePanel setGame={setGame}/>
-                    <Board game={game}/>
+                    <SidePanel game={game} setGame={setGame}/>
+                    <Board game={game} setGame={setGame}/>
                 </div>
             </ClientContext.Provider>
         </PlayerContext.Provider>
