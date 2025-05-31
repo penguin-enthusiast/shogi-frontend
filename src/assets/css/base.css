@@ -21,6 +21,10 @@ body {
   height: 600px
 }
 
+.board-wrap {
+  display: flex;
+}
+
 nav {
   min-width: 150px;
   display: flex;

@@ -1,4 +1,4 @@
-import {type Dispatch, type SetStateAction, useCallback, useContext, useEffect, useRef} from "react";
+import {type Dispatch, type SetStateAction, useCallback, useContext, useEffect, useRef, useState} from "react";
 import {Shogiground} from 'shogiground';
 import type {Key, Piece} from "shogiground/types";
 import type {Drop, Game, Move} from "./types/types.ts";
@@ -13,8 +13,12 @@ import {getDrops, getUnpromotedPieceRole} from "./boardLogic.ts";
 
 function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAction<Game | null>>}){
     const stompClientRef = useContext(ClientContext);
-    const subscriptions = useRef<StompSubscription[]>([]);
     const player = useContext(PlayerContext);
+
+    const [player1, setPlayer1] = useState<string>('');
+    const [player2, setPlayer2] = useState<string>('');
+
+    const subscriptions = useRef<StompSubscription[]>([]);
     const madeMove = useRef<boolean>(false);
     const sg = useRef(Shogiground());
 
@@ -103,9 +107,9 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
     }, []);
 
     useEffect(() => {
-        if (!stompClientRef.current || !game) {
-            return;
-        }
+        if (!stompClientRef.current || !game) return;
+        if (game.player1) setPlayer1(game.player1);
+        if (game.player2) setPlayer2(game.player2);
         sg.current.set({
             sfen: {
                 board: game?.sfen[0],
@@ -138,7 +142,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                     if (serverMessage.headers.method[0] == 'disconnect') {
                         alertMessage += ', ' + serverMessage.headers.loser[0] + ' disconnected.';
                     } else if (serverMessage.headers.method[0] == 'normal') {
-                        alertMessage += ', ' + serverMessage.headers.winner[0] + 'won!';
+                        alertMessage += ', ' + serverMessage.headers.winner[0] + ' won!';
                     }
                 }
                 window.alert(alertMessage);
@@ -177,15 +181,18 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
     }, [game, makeDrop, makeMove, player, setGame, stompClientRef]);
 
     return (
-        <div className="wrap">
-            <style>
-                { `.wrap {display: flex;}` }
-            </style>
-            <div id="hand-top" className="sg-hand-wrap"></div>
+        <div className="board-wrap">
+            <div>
+                <div id="hand-top" className="sg-hand-wrap"></div>
+                <h1 className="player-name">player id: {player2}</h1>
+            </div>
             <div id="main-wrap" className="main-board">
                 <div id="dirty" className="sg-wrap"></div>
             </div>
-            <div id="hand-bottom" className="sg-hand-wrap"></div>
+            <div className="right-side" >
+                <h1 className="player-name">player id: {player1}</h1>
+                <div id="hand-bottom" className="sg-hand-wrap"></div>
+            </div>
         </div>
     )
 }
