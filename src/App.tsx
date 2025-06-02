@@ -4,12 +4,12 @@ import {Client} from '@stomp/stompjs';
 import Board from "./Board.tsx";
 import SidePanel from "./SidePanel.tsx";
 import type {Game} from "./types/types.ts";
-import {ClientContext, PlayerContext} from './Contexts.ts';
+import {ClientContext, PlayerIdContext} from './Contexts.ts';
 
 const App = () => {
     const [game, setGame] = useState<Game|null>(null);
     const stompClientRef = useRef<Client>(null!);
-    const playerRef = useRef<'sente' | 'gote' | undefined>(undefined);
+    const playerIdRef = useRef<string>('');
 
     useEffect(() => {
         const socket = new SockJS('http://localhost:8080/ws');
@@ -31,14 +31,14 @@ const App = () => {
     }, []);
 
     return (
-        <PlayerContext.Provider value={playerRef}>
+        <PlayerIdContext.Provider value={playerIdRef}>
             <ClientContext.Provider value={stompClientRef}>
                 <div className="main">
                     <SidePanel game={game} setGame={setGame}/>
                     <Board game={game} setGame={setGame}/>
                 </div>
             </ClientContext.Provider>
-        </PlayerContext.Provider>
+        </PlayerIdContext.Provider>
     );
 };
 

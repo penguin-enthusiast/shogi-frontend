@@ -17,6 +17,8 @@ export interface Game {
     gameId: string;
     player1: string;
     player2: string;
+    player1Ready: boolean;
+    player2Ready: boolean;
     sfen: string[];
     lastMove: Move | Drop;
     status: GameStatus;

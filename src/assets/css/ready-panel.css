@@ -1,0 +1,41 @@
+.ready-panel-container {
+    margin-right: 1rem;
+    margin-left: 1rem;
+    text-align: center;
+    font-size: 16px;
+}
+
+.ready-panel-container-hidden {
+    display: none;
+    margin-right: 1rem;
+    margin-left: 1rem;
+    text-align: center;
+    font-size: 16px;
+}
+
+.button-ready {
+    border: none;
+    background-color: #04AA6D;
+    color: white;
+    padding: 15px 20px;
+    width: 200px;
+    text-align: center;
+    display: inline-block;
+    font-size: 16px;
+    cursor: not-allowed;
+}
+
+.button-not-ready {
+    border: none;
+    color: black;
+    padding: 15px 20px;
+    width: 200px;
+    text-align: center;
+    display: inline-block;
+    font-size: 16px;
+}
+
+.text-ready {
+    font-weight: bold;
+    color: #04AA6D;
+}

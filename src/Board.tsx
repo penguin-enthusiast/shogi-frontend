@@ -7,19 +7,21 @@ import './assets/css/shogiground.css';
 import './assets/css/hands.css';
 import './assets/css/themes/wood-grid.css';
 import './assets/css/pieces/ryoko.css';
-import {ClientContext, PlayerContext} from "./Contexts.ts";
+import {ClientContext, PlayerIdContext} from "./Contexts.ts";
 import type {IMessage, StompSubscription} from "@stomp/stompjs";
 import {getDrops, getUnpromotedPieceRole} from "./boardLogic.ts";
+import ReadyPanel from "./ReadyPanel.tsx";
 
 function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAction<Game | null>>}){
     const stompClientRef = useContext(ClientContext);
-    const player = useContext(PlayerContext);
+    const playerId = useContext(PlayerIdContext);
 
-    const [player1, setPlayer1] = useState<string>('');
-    const [player2, setPlayer2] = useState<string>('');
+    const [playerClient, setPlayerClient] = useState<string>('');
+    const [playerOpponent, setPlayerOpponent] = useState<string>('');
 
     const subscriptions = useRef<StompSubscription[]>([]);
     const madeMove = useRef<boolean>(false);
+    const player = useRef<'sente' | 'gote'>('sente');
     const sg = useRef(Shogiground());
 
     const makeMove = useCallback((a: Key, b: Key, prom: boolean, capturedPiece?: Piece) => {
@@ -45,7 +47,6 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
         } else {
             console.error('Stomp client is not connected');
         }
-        sg.current.set( { turnColor: player.current, } );
     }, [game?.gameId, player, stompClientRef]);
 
     const makeDrop = useCallback((piece: Piece, key: Key) => {
@@ -66,8 +67,16 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
         } else {
             console.error('Stomp client is not connected');
         }
-        sg.current.set( { turnColor: player.current, } );
     }, [game?.gameId, player, stompClientRef]);
+
+    const unsubscribeAll = () => {
+        while (subscriptions.current.length > 0) {
+            const subscription = subscriptions.current.pop();
+            if (subscription) {
+                subscription.unsubscribe();
+            }
+        }
+    };
 
     useEffect(() => {
         // initialize the page and board
@@ -107,126 +116,159 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
     }, []);
 
     useEffect(() => {
-        if (!stompClientRef.current || !game) return;
-        if (game.player1) setPlayer1(game.player1);
-        if (game.player2) setPlayer2(game.player2);
-        sg.current.set({
-            sfen: {
-                board: game?.sfen[0],
-                hands: game?.sfen[1],
-            },
-            events: {
-                move: makeMove,
-                drop: makeDrop,
-            },
-            orientation: player.current,
-            promotion: {
-                movePromotionDialog: (orig: Key, dest: Key): boolean => {
-                    switch (sg.current.state.pieces.get(orig)?.role) {
-                        case 'knight':
-                            if (player.current == 'sente') {
-                                return dest[1] === 'c';
-                            } else {
-                                return dest[1] === 'g';
-                            }
-                        case 'pawn':
-                        case 'lance':
-                            if (player.current == 'sente') {
-                                return dest[1] === 'b' || dest[1] === 'c';
-                            } else {
-                                return dest[1] === 'g' || dest[1] === 'h';
-                            }
-                        default:
-                            if (player.current == 'sente') {
-                                return orig[1] === 'a' || orig[1] === 'b' || orig[1] === 'c'
-                                    || dest[1] === 'a' || dest[1] === 'b' || dest[1] === 'c';
-                            } else {
-                                return orig[1] === 'g' || orig[1] === 'h' || orig[1] === 'i'
-                                    || dest[1] === 'g' || dest[1] === 'h' || dest[1] === 'i';
-                            }
-                    }
-                },
-                forceMovePromotion: (orig: Key, dest: Key): boolean => {
-                    switch (sg.current.state.pieces.get(orig)?.role) {
-                        case 'knight':
-                            if (player.current == 'sente') {
-                                return dest[1] === 'a' || dest[1] === 'b';
-                            } else {
-                                return dest[1] === 'h' || dest[1] === 'i';
-                            }
-                        case 'pawn':
-                        case 'lance':
-                            if (player.current == 'sente') {
-                                return dest[1] === 'a';
-                            } else {
-                                return dest[1] === 'i';
-                            }
-                        default:
-                            return false;
-                    }
-                }
-            },
-        });
-        const stompClient = stompClientRef.current;
-        subscriptions.current.push(stompClient.subscribe('/topic/game/' + game.gameId, (response: IMessage) => {
-            const serverMessage = JSON.parse(response.body);
-            setGame(serverMessage.body as Game);
-            if (serverMessage.headers.winner) {
-                let alertMessage = 'Game over';
-                if (serverMessage.headers.method) {
-                    if (serverMessage.headers.method[0] == 'disconnect') {
-                        alertMessage += ', ' + serverMessage.headers.loser[0] + ' disconnected.';
-                    } else if (serverMessage.headers.method[0] == 'normal') {
-                        alertMessage += ', ' + serverMessage.headers.winner[0] + ' won!';
-                    }
-                }
-                window.alert(alertMessage);
+        if (game?.player1 == playerId.current) {
+            player.current = 'sente';
+        } else if (game?.player2 == playerId.current) {
+            player.current = 'gote';
+        }
+    }, [game, playerId]);
+
+    useEffect(() => {
+        if (!stompClientRef.current || !game) {
+            if (game == null) {
                 sg.current.set({
-                    movable: { dests: undefined, },
-                    droppable: { dests: undefined, }
-                })
+                    sfen: {
+                        board: '9/9/9/9/9/9/9/9/9',
+                        hands: '-',
+                    },
+                });
+                unsubscribeAll();
             }
-        }));
-        subscriptions.current.push(stompClient.subscribe('/topic/game/' + game.gameId + '/move', (response: IMessage) => {
-            const serverMessage = JSON.parse(response.body);
-            if (madeMove.current) {
-                madeMove.current =  false;
-                return;
+            return;
+        }
+        setPlayerClient(playerId.current);
+        setPlayerOpponent(player.current == 'sente' ? game.player2 : game.player1);
+
+        switch (game.status) {
+            case "WAITING": {
+                if (subscriptions.current.length == 0) {
+                    const stompClient = stompClientRef.current;
+                    subscriptions.current.push(stompClient.subscribe('/topic/game/' + game.gameId, (response: IMessage) => {
+                        const serverMessage = JSON.parse(response.body);
+                        setGame(serverMessage.body as Game);
+                        if (serverMessage.headers.winner) {
+                            let alertMessage = 'Game over';
+                            if (serverMessage.headers.method) {
+                                if (serverMessage.headers.method[0] == 'disconnect') {
+                                    alertMessage += ', ' + serverMessage.headers.loser[0] + ' disconnected.';
+                                } else if (serverMessage.headers.method[0] == 'normal') {
+                                    alertMessage += ', ' + serverMessage.headers.winner[0] + ' won!';
+                                }
+                            }
+                            window.alert(alertMessage);
+                            sg.current.set({
+                                movable: {dests: undefined,},
+                                droppable: {dests: undefined,}
+                            })
+                        }
+                    }));
+                    subscriptions.current.push(stompClient.subscribe('/topic/game/' + game.gameId + '/move', (response: IMessage) => {
+                        const serverMessage = JSON.parse(response.body);
+                        if (madeMove.current) {
+                            madeMove.current = false;
+                            return;
+                        }
+                        if (serverMessage.headers.moveType[0] == 'move') {
+                            const move: Move = serverMessage.body;
+                            sg.current.move(move.orig, move.dest, move.prom);
+                        } else if (serverMessage.headers.moveType[0] == 'drop') {
+                            const drop: Drop = serverMessage.body;
+                            sg.current.drop(drop.piece, drop.key, false, false);
+                        }
+                    }));
+                    subscriptions.current.push(stompClient.subscribe('/user/topic/game/' + game.gameId + '/legalMoves', (response: IMessage) => {
+                        const moveMap = new Map<Key, Key[]>();
+                        Object.entries(JSON.parse(response.body).body).forEach(([key, value]) => {
+                            moveMap.set(key as Key, value as Key[]);
+                        })
+                        sg.current.set({movable: {dests: moveMap,}});
+                    }));
+                }
+                sg.current.set({
+                    sfen: {
+                        board: game?.sfen[0],
+                        hands: game?.sfen[1],
+                    },
+                    events: {
+                        move: makeMove,
+                        drop: makeDrop,
+                    },
+                    orientation: player.current,
+                    promotion: {
+                        movePromotionDialog: (orig: Key, dest: Key): boolean => {
+                            switch (sg.current.state.pieces.get(orig)?.role) {
+                                case 'knight':
+                                    if (player.current == 'sente') {
+                                        return dest[1] === 'c';
+                                    } else {
+                                        return dest[1] === 'g';
+                                    }
+                                case 'pawn':
+                                case 'lance':
+                                    if (player.current == 'sente') {
+                                        return dest[1] === 'b' || dest[1] === 'c';
+                                    } else {
+                                        return dest[1] === 'g' || dest[1] === 'h';
+                                    }
+                                default:
+                                    if (player.current == 'sente') {
+                                        return orig[1] === 'a' || orig[1] === 'b' || orig[1] === 'c'
+                                            || dest[1] === 'a' || dest[1] === 'b' || dest[1] === 'c';
+                                    } else {
+                                        return orig[1] === 'g' || orig[1] === 'h' || orig[1] === 'i'
+                                            || dest[1] === 'g' || dest[1] === 'h' || dest[1] === 'i';
+                                    }
+                            }
+                        },
+                        forceMovePromotion: (orig: Key, dest: Key): boolean => {
+                            switch (sg.current.state.pieces.get(orig)?.role) {
+                                case 'knight':
+                                    if (player.current == 'sente') {
+                                        return dest[1] === 'a' || dest[1] === 'b';
+                                    } else {
+                                        return dest[1] === 'h' || dest[1] === 'i';
+                                    }
+                                case 'pawn':
+                                case 'lance':
+                                    if (player.current == 'sente') {
+                                        return dest[1] === 'a';
+                                    } else {
+                                        return dest[1] === 'i';
+                                    }
+                                default:
+                                    return false;
+                            }
+                        }
+                    },
+                });
+                break;
             }
-            if (serverMessage.headers.moveType[0] == 'move') {
-                const move: Move = serverMessage.body;
-                sg.current.move(move.orig, move.dest, move.prom);
-            } else if (serverMessage.headers.moveType[0] == 'drop') {
-                const drop: Drop = serverMessage.body;
-                sg.current.drop(drop.piece, drop.key, false, false);
+            case "IN_PROGRESS": {
+                break;
             }
-        }));
-        subscriptions.current.push(stompClient.subscribe('/user/topic/game/'  + game.gameId + '/legalMoves', (response: IMessage) => {
-            const moveMap = new Map<Key, Key[]>();
-            Object.entries(JSON.parse(response.body).body).forEach(([key, value]) => {
-                moveMap.set(key as Key, value as Key[]);
-            })
-            sg.current.set( { movable: { dests: moveMap, }} );
-        }));
-        if (game.status == 'FINISHED') {
-            for (let i = 0; i < subscriptions.current.length; i++) {
-                subscriptions.current[i].unsubscribe();
+            case "FINISHED": {
+                unsubscribeAll();
+                break;
             }
         }
-    }, [game, makeDrop, makeMove, player, setGame, stompClientRef]);
+    }, [game, makeDrop, makeMove, playerId, setGame, stompClientRef]);
 
     return (
-        <div className="board-wrap">
-            <div>
-                <div id="hand-top" className="sg-hand-wrap"></div>
-                <h1 className="player-name">player id: {player2}</h1>
-            </div>
-            <div id="main-wrap" className="main-board">
-                <div id="dirty" className="sg-wrap"></div>
-            </div>
-            <div className="right-side" >
-                <h1 className="player-name">player id: {player1}</h1>
-                <div id="hand-bottom" className="sg-hand-wrap"></div>
+        <div>
+            <h1 className="board-title">Game ID: {game?.gameId}</h1>
+            <div className="board-wrap">
+                <div>
+                    <div id="hand-top" className="sg-hand-wrap"></div>
+                    <h1 className="player-name">player id: {playerOpponent}</h1>
+                    <ReadyPanel game={game} playerId={playerId.current}></ReadyPanel>
+                </div>
+                <div id="main-wrap" className="main-board">
+                    <div id="dirty" className="sg-wrap"></div>
+                </div>
+                <div className="right-side" >
+                    <h1 className="player-name">player id: {playerClient}</h1>
+                    <div id="hand-bottom" className="sg-hand-wrap"></div>
+                </div>
             </div>
         </div>
     )

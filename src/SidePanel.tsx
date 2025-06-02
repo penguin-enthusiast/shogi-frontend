@@ -1,23 +1,24 @@
-import {type Dispatch, type SetStateAction, useContext, useState} from "react";
-import { ClientContext, PlayerContext } from './Contexts.ts';
+import {type Dispatch, type SetStateAction, useContext} from "react";
+import './assets/css/base.css';
+import { ClientContext, PlayerIdContext } from './Contexts.ts';
 import type {IMessage} from "@stomp/stompjs";
 import type {Game} from "./types/types.ts";
 
 function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStateAction<Game | null>>}) {
     const stompClientRef = useContext(ClientContext);
-    const player = useContext(PlayerContext);
-    const [gameId, setGameId] = useState('');
+    const playerId = useContext(PlayerIdContext);
 
     const joinGame = (response: IMessage) => {
         const message = JSON.parse(response.body);
         if (message.statusCodeValue === 404) {
-            window.alert("Game not found")
-            player.current = undefined;
+            window.alert("Game not found");
+            playerId.current = '';
+            setGame(null);
             return;
         }
         const game = message.body as Game;
         setGame(game);
-        window.alert('Joined game with id:\n\n' + game.gameId);
+        playerId.current = message.headers.playerId[0];
         stompClientRef.current.unsubscribe('/user/topic/game');
     }
 
@@ -28,7 +29,6 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
         const stompClient = stompClientRef.current;
         stompClient.subscribe('/user/topic/game', joinGame);
         if (stompClient && stompClient.connected) {
-            player.current = 'sente';
             stompClient.publish({
                 destination: '/app/create',
             });
@@ -44,7 +44,6 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
         const stompClient = stompClientRef.current;
         stompClient.subscribe('/user/topic/game', joinGame);
         if (stompClient && stompClient.connected) {
-            player.current = 'gote';
             stompClient.publish({
                 destination: '/app/join/random',
             });
@@ -56,15 +55,14 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
     const connectToSpecificGame = () => {
         const stompClient = stompClientRef.current;
         stompClient.subscribe('/user/topic/game', joinGame);
-        if (gameId == null || gameId === '') {
-            alert("Please enter a game id");
-            return;
-        }
         if (!leaveGameConfirmation()) {
             return;
         }
+        const gameId = prompt("Please enter the game ID");
+        if (!gameId) {
+            return;
+        }
         if (stompClient && stompClient.connected) {
-            player.current = 'gote';
             stompClient.publish({
                 destination: '/app/join',
                 body: JSON.stringify({
@@ -85,6 +83,7 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
                     stompClient.publish({
                         destination: '/app/game/' + game.gameId + '/disconnect',
                     });
+                    setGame(null);
                 } else {
                     console.error('Stomp client is not connected');
                 }
@@ -97,15 +96,13 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
 
     return (
         <div>
-            <button name="createNewGameBtn" onClick={createGame}>Create a new game</button>
-            <br/>
-            <button onClick={connectToRandom}>Connect to random game</button>
+            <button name="createNewGameBtn" onClick={createGame} className="button">Create a new game</button>
             <br/>
             <br/>
-            <button name="connectByGameIdBtn" onClick={connectToSpecificGame}>Connect by game id</button>
+            <button onClick={connectToRandom} className="button">Connect to random game</button>
             <br/>
-            <input id="game_id" placeholder="Paste game id"
-                   value={gameId} onInput={e => setGameId(e.currentTarget.value)} />
+            <br/>
+            <button name="connectByGameIdBtn" onClick={connectToSpecificGame} className="button">Connect by game id</button>
             <br/>
         </div>
     )
