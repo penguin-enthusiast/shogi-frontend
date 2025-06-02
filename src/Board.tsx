@@ -122,14 +122,49 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
             orientation: player.current,
             promotion: {
                 movePromotionDialog: (orig: Key, dest: Key): boolean => {
-                    if (player.current == 'sente') {
-                        return orig[1] === 'a' || orig[1] === 'b' || orig[1] === 'c'
-                            || dest[1] === 'a' || dest[1] === 'b' || dest[1] === 'c';
-                    } else {
-                        return orig[1] === 'g' || orig[1] === 'h' || orig[1] === 'i'
-                            || dest[1] === 'g' || dest[1] === 'h' || dest[1] === 'i';
+                    switch (sg.current.state.pieces.get(orig)?.role) {
+                        case 'knight':
+                            if (player.current == 'sente') {
+                                return dest[1] === 'c';
+                            } else {
+                                return dest[1] === 'g';
+                            }
+                        case 'pawn':
+                        case 'lance':
+                            if (player.current == 'sente') {
+                                return dest[1] === 'b' || dest[1] === 'c';
+                            } else {
+                                return dest[1] === 'g' || dest[1] === 'h';
+                            }
+                        default:
+                            if (player.current == 'sente') {
+                                return orig[1] === 'a' || orig[1] === 'b' || orig[1] === 'c'
+                                    || dest[1] === 'a' || dest[1] === 'b' || dest[1] === 'c';
+                            } else {
+                                return orig[1] === 'g' || orig[1] === 'h' || orig[1] === 'i'
+                                    || dest[1] === 'g' || dest[1] === 'h' || dest[1] === 'i';
+                            }
                     }
                 },
+                forceMovePromotion: (orig: Key, dest: Key): boolean => {
+                    switch (sg.current.state.pieces.get(orig)?.role) {
+                        case 'knight':
+                            if (player.current == 'sente') {
+                                return dest[1] === 'a' || dest[1] === 'b';
+                            } else {
+                                return dest[1] === 'h' || dest[1] === 'i';
+                            }
+                        case 'pawn':
+                        case 'lance':
+                            if (player.current == 'sente') {
+                                return dest[1] === 'a';
+                            } else {
+                                return dest[1] === 'i';
+                            }
+                        default:
+                            return false;
+                    }
+                }
             },
         });
         const stompClient = stompClientRef.current;
