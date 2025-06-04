@@ -1,6 +1,6 @@
 import {type Dispatch, type SetStateAction, useCallback, useContext, useEffect, useRef, useState} from "react";
 import {Shogiground} from 'shogiground';
-import type {Key, Piece} from "shogiground/types";
+import type {Color, Key, Piece} from "shogiground/types";
 import type {Drop, Game, Move} from "./types/types.ts";
 import './assets/css/base.css';
 import './assets/css/shogiground.css';
@@ -18,13 +18,27 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
 
     const [playerClient, setPlayerClient] = useState<string>('');
     const [playerOpponent, setPlayerOpponent] = useState<string>('');
+    const [turnProp, setTurnProp] = useState<Color>('sente');
 
     const subscriptions = useRef<StompSubscription[]>([]);
     const madeMove = useRef<boolean>(false);
-    const player = useRef<'sente' | 'gote'>('sente');
+    const player = useRef<Color>('sente');
+    const turn = useRef<Color>('sente');
     const sg = useRef(Shogiground());
 
+    const setTurn = () => {
+        turn.current = turn.current == 'sente' ? 'gote' : 'sente';
+        setTurnProp(turn.current);
+        sg.current.set(
+            {
+                turnColor: turn.current,
+                activeColor: turn.current,
+            }
+        );
+    }
+
     const makeMove = useCallback((a: Key, b: Key, prom: boolean, capturedPiece?: Piece) => {
+        setTurn();
         if (capturedPiece) {
             const color = capturedPiece.color == 'gote' ? 'sente' : 'gote';
             const role: string = getUnpromotedPieceRole(capturedPiece.role);
@@ -50,6 +64,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
     }, [game?.gameId, player, stompClientRef]);
 
     const makeDrop = useCallback((piece: Piece, key: Key) => {
+        setTurn();
         if (sg.current.getHandsSfen() != '-') {
             const dests = getDrops(sg.current.state.pieces, sg.current.getHandsSfen(), player.current!);
             sg.current.set({ droppable: { dests: dests, } });
@@ -240,13 +255,22 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                             }
                         }
                     },
+                    activeColor: undefined,
                 });
                 break;
             }
             case "IN_PROGRESS": {
+                sg.current.set(
+                    {
+                        turnColor: 'sente',
+                        activeColor: 'sente',
+                    }
+                );
                 break;
             }
             case "FINISHED": {
+                turn.current = 'sente';
+                sg.current.set({ activeColor: undefined, });
                 unsubscribeAll();
                 break;
             }
@@ -260,7 +284,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                 <div>
                     <div id="hand-top" className="sg-hand-wrap"></div>
                     <h1 className="player-name">player id: {playerOpponent}</h1>
-                    <ReadyPanel game={game} playerId={playerId.current}></ReadyPanel>
+                    <ReadyPanel game={game} playerId={playerId.current} turn={turnProp}></ReadyPanel>
                 </div>
                 <div id="main-wrap" className="main-board">
                     <div id="dirty" className="sg-wrap"></div>
