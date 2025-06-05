@@ -94,16 +94,36 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
         return true;
     }
 
+    const createEngineGame = () => {
+        if (!leaveGameConfirmation()) {
+            return;
+        }
+        const stompClient = stompClientRef.current;
+        stompClient.subscribe('/user/topic/game', joinGame);
+        if (stompClient && stompClient.connected) {
+            stompClient.publish({
+                destination: '/app/create-engine',
+                body: JSON.stringify({
+                    "engine": "random"
+                }),
+            });
+        } else {
+            console.error('Stomp client is not connected');
+        }
+    }
+
     return (
         <div>
             <button name="createNewGameBtn" onClick={createGame} className="button">Create a new game</button>
             <br/>
             <br/>
-            <button onClick={connectToRandom} className="button">Connect to random game</button>
+            <button name="connectRandomBtn" onClick={connectToRandom} className="button">Connect to random game</button>
             <br/>
             <br/>
             <button name="connectByGameIdBtn" onClick={connectToSpecificGame} className="button">Connect by game id</button>
             <br/>
+            <br/>
+            <button name="createEngineGameBtn" onClick={createEngineGame} className="button">Play against engine (makes random moves)</button>
         </div>
     )
 }
