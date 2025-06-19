@@ -116,11 +116,16 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
     }, []);
 
     useEffect(() => {
-        if (game?.player1 == playerId.current) {
+        if (!game) {
+            return;
+        }
+        if (game.player1 == playerId.current) {
             player.current = 'sente';
-        } else if (game?.player2 == playerId.current) {
+        } else if (game.player2 == playerId.current) {
             player.current = 'gote';
         }
+        setPlayerClient(playerId.current);
+        setPlayerOpponent(player.current == 'sente' ? game.player2 : game.player1);
     }, [game, playerId]);
 
     useEffect(() => {
@@ -136,8 +141,6 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
             }
             return;
         }
-        setPlayerClient(playerId.current);
-        setPlayerOpponent(player.current == 'sente' ? game.player2 : game.player1);
 
         switch (game.status) {
             case "WAITING": {
@@ -244,6 +247,14 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                 break;
             }
             case "IN_PROGRESS": {
+                sg.current.set(
+                    {
+                        sfen: {
+                            board: game.sfen[0],
+                            hands: game.sfen[1],
+                        }
+                    }
+                );
                 break;
             }
             case "FINISHED": {
