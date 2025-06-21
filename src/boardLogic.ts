@@ -1,4 +1,4 @@
-import type {Color, DropDests, Key, Piece, PieceName} from "shogiground/types";
+import type {Color, DropDests, Key, Piece, PieceName} from "./assets/shogiground/types.ts";
 
 export function getDrops(pieces: Map<Key, Piece>, sfen: string, color: Color): DropDests {
     const dests: DropDests = new Map();

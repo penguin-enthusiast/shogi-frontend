@@ -1,6 +1,6 @@
 import {type Dispatch, type SetStateAction, useCallback, useContext, useEffect, useRef, useState} from "react";
-import {Shogiground} from 'shogiground';
-import type {Key, Piece} from "shogiground/types";
+import {Shogiground} from './assets/shogiground/shogiground.ts';
+import type {Key, Piece} from "./assets/shogiground/types.ts";
 import type {Drop, Game, Move} from "./types/types.ts";
 import './assets/css/base.css';
 import './assets/css/shogiground.css';
@@ -242,6 +242,10 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                                     return false;
                             }
                         }
+                    },
+                    pieceCooldown: {
+                        enabled: true,
+                        cooldownTime: game.cooldownTime,
                     },
                 });
                 break;
