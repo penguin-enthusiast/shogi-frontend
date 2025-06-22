@@ -104,6 +104,11 @@ function SidePanel({game, setGame}: {game: Game| null, setGame: Dispatch<SetStat
             <br/>
             <button name="connectByGameIdBtn" onClick={connectToSpecificGame} className="button">Connect by game id</button>
             <br/>
+            <br/>
+            <br/>
+            <br/>
+            <button className="button" onClick={() => {if (leaveGameConfirmation()) window.location.replace("/help.html");}}>how to play</button>
+            <br/>
         </div>
     )
 }
