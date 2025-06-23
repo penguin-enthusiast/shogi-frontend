@@ -1,4 +1,4 @@
-import type {Key, Piece} from "shogiground/types";
+import type {Key, Piece} from "../assets/shogiground/types.ts";
 
 export interface Move {
     orig: Key;
@@ -22,6 +22,7 @@ export interface Game {
     sfen: string[];
     lastMove: Move | Drop;
     status: GameStatus;
+    cooldownTime: number;
 }
 
 export type GameStatus = 'NO_GAME' | 'WAITING' | 'IN_PROGRESS' | 'FINISHED';

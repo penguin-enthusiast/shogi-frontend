@@ -349,3 +349,18 @@ sg-square-over {
 .sg-wrap .sg-shapes marker#arrowhead-alternative2 path {
   fill: #e68f00;
 }
+
+.timer {
+  position: absolute;
+  width: calc(100% / 9);
+  height: calc(100% / 9);
+  opacity: 1;
+  background: rgba(20, 30, 85, 0.5);
+  animation: timer 5s linear;
+  -webkit-animation-fill-mode: forwards;
+}
+
+@keyframes timer {
+  0% { clip-path: polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%); }
+  100% { clip-path: polygon(0% 100%, 0% 100%, 100% 100%, 100% 100%); }
+}

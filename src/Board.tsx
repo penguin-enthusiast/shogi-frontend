@@ -1,12 +1,12 @@
 import {type Dispatch, type SetStateAction, useCallback, useContext, useEffect, useRef, useState} from "react";
-import {Shogiground} from 'shogiground';
-import type {Key, Piece} from "shogiground/types";
+import {Shogiground} from './assets/shogiground/shogiground.ts';
+import type {Key, Piece} from "./assets/shogiground/types.ts";
 import type {Drop, Game, Move} from "./types/types.ts";
 import './assets/css/base.css';
 import './assets/css/shogiground.css';
 import './assets/css/hands.css';
 import './assets/css/themes/wood-grid.css';
-import './assets/css/pieces/ryoko.css';
+import './assets/css/pieces/czech.css';
 import {ClientContext, PlayerIdContext} from "./Contexts.ts";
 import type {IMessage, StompSubscription} from "@stomp/stompjs";
 import {getDrops, getUnpromotedPieceRole} from "./boardLogic.ts";
@@ -116,11 +116,16 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
     }, []);
 
     useEffect(() => {
-        if (game?.player1 == playerId.current) {
+        if (!game) {
+            return;
+        }
+        if (game.player1 == playerId.current) {
             player.current = 'sente';
-        } else if (game?.player2 == playerId.current) {
+        } else if (game.player2 == playerId.current) {
             player.current = 'gote';
         }
+        setPlayerClient(playerId.current);
+        setPlayerOpponent(player.current == 'sente' ? game.player2 : game.player1);
     }, [game, playerId]);
 
     useEffect(() => {
@@ -136,8 +141,6 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
             }
             return;
         }
-        setPlayerClient(playerId.current);
-        setPlayerOpponent(player.current == 'sente' ? game.player2 : game.player1);
 
         switch (game.status) {
             case "WAITING": {
@@ -240,10 +243,22 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                             }
                         }
                     },
+                    pieceCooldown: {
+                        enabled: true,
+                        cooldownTime: game.cooldownTime,
+                    },
                 });
                 break;
             }
             case "IN_PROGRESS": {
+                sg.current.set(
+                    {
+                        sfen: {
+                            board: game.sfen[0],
+                            hands: game.sfen[1],
+                        }
+                    }
+                );
                 break;
             }
             case "FINISHED": {
