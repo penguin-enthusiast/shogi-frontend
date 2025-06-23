@@ -6,7 +6,7 @@ import './assets/css/base.css';
 import './assets/css/shogiground.css';
 import './assets/css/hands.css';
 import './assets/css/themes/wood-grid.css';
-import './assets/css/pieces/ryoko.css';
+import './assets/css/pieces/czech.css';
 import {ClientContext, PlayerIdContext} from "./Contexts.ts";
 import type {IMessage, StompSubscription} from "@stomp/stompjs";
 import {getDrops, getUnpromotedPieceRole} from "./boardLogic.ts";
