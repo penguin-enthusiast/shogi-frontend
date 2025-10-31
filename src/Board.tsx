@@ -14,7 +14,7 @@ import ReadyPanel from "./ReadyPanel.tsx";
 
 function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAction<Game | null>>}){
     const stompClientRef = useContext(ClientContext);
-    const playerId = useContext(PlayerIdContext);
+    const playerIdRef = useContext(PlayerIdContext);
 
     const [playerClient, setPlayerClient] = useState<string>('');
     const [playerOpponent, setPlayerOpponent] = useState<string>('');
@@ -119,14 +119,14 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
         if (!game) {
             return;
         }
-        if (game.player1 == playerId.current) {
+        if (game.player1 == playerIdRef.current) {
             player.current = 'sente';
-        } else if (game.player2 == playerId.current) {
+        } else if (game.player2 == playerIdRef.current) {
             player.current = 'gote';
         }
-        setPlayerClient(playerId.current);
+        setPlayerClient(playerIdRef.current);
         setPlayerOpponent(player.current == 'sente' ? game.player2 : game.player1);
-    }, [game, playerId]);
+    }, [game, playerIdRef]);
 
     useEffect(() => {
         if (!stompClientRef.current || !game) {
@@ -266,7 +266,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                 break;
             }
         }
-    }, [game, makeDrop, makeMove, playerId, setGame, stompClientRef]);
+    }, [game, makeDrop, makeMove, playerIdRef, setGame, stompClientRef]);
 
     return (
         <div>
@@ -275,7 +275,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                 <div>
                     <div id="hand-top" className="sg-hand-wrap"></div>
                     <h1 className="player-name">player id: {playerOpponent}</h1>
-                    <ReadyPanel game={game} playerId={playerId.current}></ReadyPanel>
+                    <ReadyPanel game={game} playerId={playerIdRef.current}></ReadyPanel>
                 </div>
                 <div id="main-wrap" className="main-board">
                     <div id="dirty" className="sg-wrap"></div>
