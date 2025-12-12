@@ -1,0 +1,32 @@
+th {
+    text-align: left;
+}
+
+.table-header,
+.move-table {
+    width: 250px;
+    font-size: 20px;
+}
+
+.move-table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    max-height: 300px;
+    overflow-y: scroll;
+}
+
+.index-col {
+    width: 40px;
+}
+
+.side-col {
+    width: 20px;
+}
+
+.move-col {
+    width: 80px;
+}
+
+.time-col {
+    width: 92px;
+}

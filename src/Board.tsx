@@ -7,10 +7,11 @@ import './assets/css/shogiground.css';
 import './assets/css/hands.css';
 import './assets/css/themes/wood-grid.css';
 import './assets/css/pieces/czech.css';
-import {ClientContext, PlayerIdContext} from "./Contexts.ts";
+import {BoardMovesContext, ClientContext, PlayerIdContext} from "./Contexts.ts";
 import type {IMessage, StompSubscription} from "@stomp/stompjs";
 import {getDrops, getUnpromotedPieceRole} from "./boardLogic.ts";
 import ReadyPanel from "./ReadyPanel.tsx";
+import InfoPanel from "./InfoPanel.tsx";
 
 function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAction<Game | null>>}){
     const stompClientRef = useContext(ClientContext);
@@ -18,6 +19,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
 
     const [playerClient, setPlayerClient] = useState<string>('');
     const [playerOpponent, setPlayerOpponent] = useState<string>('');
+    const [boardMoves, setBoardMoves] = useState<string[]>([]);
 
     const subscriptions = useRef<StompSubscription[]>([]);
     const madeMove = useRef<boolean>(false);
@@ -144,6 +146,7 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
 
         switch (game.status) {
             case "WAITING": {
+                setBoardMoves([]);
                 if (subscriptions.current.length == 0) {
                     const stompClient = stompClientRef.current;
                     subscriptions.current.push(stompClient.subscribe('/topic/game/' + game.gameId, (response: IMessage) => {
@@ -167,12 +170,15 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                     }));
                     subscriptions.current.push(stompClient.subscribe('/topic/game/' + game.gameId + '/move', (response: IMessage) => {
                         const serverMessage = JSON.parse(response.body);
+                        const move: Move = serverMessage.body;
+                        const moveString: string = move.moveString;
+                        setBoardMoves(boardMoves => [...boardMoves, moveString]);
+                        console.log(boardMoves)
                         if (madeMove.current) {
                             madeMove.current = false;
                             return;
                         }
                         if (serverMessage.headers.moveType[0] == 'move') {
-                            const move: Move = serverMessage.body;
                             sg.current.move(move.orig, move.dest, move.prom);
                         } else if (serverMessage.headers.moveType[0] == 'drop') {
                             const drop: Drop = serverMessage.body;
@@ -284,6 +290,9 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                     <h1 className="player-name">player id: {playerClient}</h1>
                     <div id="hand-bottom" className="sg-hand-wrap"></div>
                 </div>
+                <BoardMovesContext.Provider value={boardMoves}>
+                    <InfoPanel/>
+                </BoardMovesContext.Provider>
             </div>
         </div>
     )

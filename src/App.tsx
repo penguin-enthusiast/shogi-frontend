@@ -8,6 +8,7 @@ import {ClientContext, PlayerIdContext} from './Contexts.ts';
 
 const App = () => {
     const [game, setGame] = useState<Game|null>(null);
+
     const stompClientRef = useRef<Client>(null!);
     const playerIdRef = useRef<string>('');
 
@@ -31,14 +32,14 @@ const App = () => {
     }, []);
 
     return (
-        <PlayerIdContext.Provider value={playerIdRef}>
-            <ClientContext.Provider value={stompClientRef}>
-                <div className="main">
+        <div className="main">
+            <PlayerIdContext.Provider value={playerIdRef}>
+                <ClientContext.Provider value={stompClientRef}>
                     <SidePanel game={game} setGame={setGame}/>
                     <Board game={game} setGame={setGame}/>
-                </div>
-            </ClientContext.Provider>
-        </PlayerIdContext.Provider>
+                </ClientContext.Provider>
+            </PlayerIdContext.Provider>
+        </div>
     );
 };
 

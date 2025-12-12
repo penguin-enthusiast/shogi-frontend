@@ -1,6 +1,7 @@
 import type {Key, Piece} from "../assets/shogiground/types.ts";
 
 export interface Move {
+    moveString: string;
     orig: Key;
     dest: Key;
     prom: boolean;
