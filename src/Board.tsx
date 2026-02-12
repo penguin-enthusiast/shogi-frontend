@@ -173,7 +173,6 @@ function Board({game, setGame}: {game: Game | null, setGame: Dispatch<SetStateAc
                         const move: Move = serverMessage.body;
                         const moveString: string = move.moveString;
                         setBoardMoves(boardMoves => [...boardMoves, moveString]);
-                        console.log(boardMoves)
                         if (madeMove.current) {
                             madeMove.current = false;
                             return;
