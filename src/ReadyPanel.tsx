@@ -17,6 +17,7 @@ function ReadyPanel ({game, playerId}: {game: Game | null, playerId: string}) {
 
     useEffect(() => {
         if (game == null) {
+            resetPanel();
             return;
         }
         if (game.status == "FINISHED") {
